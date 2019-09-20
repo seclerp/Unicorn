@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp2.2</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Syntax\Parser.fs" />
+        <Compile Include="Semantic\Analyzer.fs" />
+        <Compile Include="IR\Builder.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+
+</Project>
