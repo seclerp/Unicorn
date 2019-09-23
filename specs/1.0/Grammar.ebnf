@@ -18,9 +18,21 @@ symbol_id = "$" | "'" | "_";
 character = letter | digit | symbol | "_" ;
 id = ( specials_id | letter ), { specials_id | letter | digit };
 integer = "0" | ( digit_no_zero, { digit } );
+string = '"', { unicode_char }, '"';
 
 (* Expressions *)
 expression = term | expression '+' term | expression '-' term;
 term = factor | term '*' factor | term '/' factor | term '%' factor;
 factor = primary | '-' factor | '+' factor;
 primary = id | integer | '(' expression ')';
+expression_statement = expression;
+
+signature = ':', id; 
+variable_declaration = id, signature, '=', expression;
+parameter_declaration = id, signature;
+function = 'fun', id, '(', { parameter_declaration, { ',', parameter_declaration } }, ')', signature, '{', { expression_statement }, '}';
+deps = 'deps', '{', { string }, '}';
+top_level_statement = deps | function;
+
+(* Grammar root *)
+program = { statement };
