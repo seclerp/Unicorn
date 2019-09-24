@@ -6,10 +6,15 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Models\AST.fs" />
         <Compile Include="Syntax\Parser.fs" />
         <Compile Include="Semantic\Analyzer.fs" />
         <Compile Include="IR\Builder.fs" />
         <Compile Include="Program.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FParsec" Version="1.0.3" />
     </ItemGroup>
 
 </Project>
