@@ -20,6 +20,8 @@ character = "'", unicode_char, "_";
 integer = "0" | ( digit_no_zero, { digit } );
 string = '"', { unicode_char }, '"';
 
+comment = '#', { unicode_char }, EOL;
+
 (* Expressions *)
 assignment = id, '=', expression;
 expression = term | expression '+' term | expression '-' term;
