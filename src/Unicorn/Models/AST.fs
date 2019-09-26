@@ -10,7 +10,7 @@ and Statement =
     | Return of ExpressionStatement option
 and ExpressionStatement =
     | VariableDeclaration of Id * Id * ExpressionStatement option
-    | Assignment of l: string * r: ExpressionStatement
+    | Assignment of l: Id * r: ExpressionStatement
     | Expression of Expression
 and Expression =
     | Binary of Expression * Op * Expression
@@ -25,7 +25,7 @@ and Primary =
 and Id = Id of string
 and String = String of string
 and Op =
-    | Plus
-    | Minus
-    | Mult
+    | Add
+    | Subtract
+    | Multiply
     | Divide

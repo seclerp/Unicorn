@@ -3,23 +3,8 @@ module rec Unicorn.Syntax.Parser
 open FParsec
 open Unicorn.Models.AST
 
-let private parsePlus = pchar '+' >>% Plus
-let private parseMinus = pchar '-' >>% Minus
-let private parseMult = pchar '*' >>% Mult
-let private parseDivide = pchar '/' >>% Divide
-
-let private pop =
-    spaces >>. choice [
-        parsePlus
-        parseMinus
-        parseMult
-        parseDivide
-    ]
-
 let private parseId =
     spaces >>. many1Chars (satisfy isAsciiLetter) |>> Id
-let private parsePrimaryId =
-    parseId |>> Primary.Id
 
 let private parseCharacter =
     spaces
@@ -31,12 +16,10 @@ let private parseCharacter =
 let private parseInteger = spaces >>. pint32 |>> Integer
 let private parseString =
     spaces
-    >>. pchar '\"'
+    >>. skipChar '\"'
     >>. manyChars anyChar
-    .>> pchar '\"'
+    .>> skipChar '\"'
     |>> String
-let private parsePrimaryString =
-    parseString |>> Primary.String
 
 let private parseTrue = pstring "true" >>% Boolean true
 let private parseFalse = pstring "false" >>% Boolean false
@@ -48,10 +31,10 @@ let private parseBoolean =
 
 let private parsePrimary =
     spaces >>. choice [
-        parsePrimaryId
+        parseId         |>> Primary.Id
         parseCharacter
         parseInteger
-        parsePrimaryString
+        parseString     |>> Primary.String
         parseTrue
         parseFalse
         parseBoolean
@@ -89,6 +72,14 @@ let private parseParameters =
         (pchar ')')
         (spaces >>. (many parseParameter) .>> spaces)
 
+let private parseAssignmentRest =
+    parse {
+        do! spaces
+        do! skipChar '='
+        do! spaces
+        return! parseExpressionStatement
+    }
+
 let private parseVariableDeclaration =
     parse {
         do! spaces
@@ -99,23 +90,57 @@ let private parseVariableDeclaration =
         do! skipChar ':'
         do! spaces
         let! type' = parseId
-        return VariableDeclaration (name, type')
+        let! value = opt parseAssignmentRest
+        return VariableDeclaration (name, type', value)
     }
+
+let private parseAssignment =
+    parse {
+        do! spaces
+        let! variable = parseId
+        do! spaces
+        do! skipChar '='
+        do! spaces
+        let! value = parseAssignmentRest
+        return Assignment (variable, value)
+    }
+
+let operatorParser = new OperatorPrecedenceParser<Expression,unit,unit>()
+let exprParser = operatorParser.ExpressionParser
+let termParser =
+    choice [
+        spaces >>. (parsePrimary |>> Expression.Primary) .>> spaces
+        between (spaces >>. pchar '(' .>> spaces) (spaces >>. pchar ')' .>> spaces) exprParser
+    ]
+
+operatorParser.TermParser <- termParser
+operatorParser.AddOperator(InfixOperator("+", spaces, 1, Associativity.Left, fun x y -> Binary(x, Add, y)))
+operatorParser.AddOperator(InfixOperator("-", spaces, 1, Associativity.Left, fun x y -> Binary(x, Subtract, y)))
+operatorParser.AddOperator(InfixOperator("*", spaces, 2, Associativity.Left, fun x y -> Binary(x, Multiply, y)))
+operatorParser.AddOperator(InfixOperator("/", spaces, 2, Associativity.Left, fun x y -> Binary(x, Divide, y)))
+operatorParser.AddOperator(PrefixOperator("-", spaces, 2, true, fun x -> Unary(Subtract, x)))
+
+let private parseExpression =
+    exprParser |>> ExpressionStatement.Expression
 
 let private parseExpressionStatement =
     spaces >>. choice [
         parseVariableDeclaration
         parseAssignment
         parseExpression
+        // TODO: Add parseIfStatement
+        // TODO: Add parseForStatement
+        // TODO: Add parseWhileStatement
+        // TODO: Add parseDoWhileStatement
     ]
 
 let private parseReturn =
-    spaces >>. skipString "return" >>. spaces >>. parseExpressionStatement
+    spaces >>. skipString "return" >>. spaces >>. opt parseExpressionStatement
 
 let private parseStatement =
     spaces >>. choice [
-        parseExpressionStatement
-        parseReturn
+        parseReturn                 |>> Statement.Return
+        parseExpressionStatement    |>> Statement.ExpressionStatement
     ]
 
 let private parseFunctionBody =
@@ -145,7 +170,7 @@ let private parseTopLevelStatement =
         parseFunction
     ]
 
-let private parseProgram =
-    spaces
-    >>. many parseTopLevelStatement
-    >>. eof
+let private parseProgram sources =
+    match run (many parseTopLevelStatement) sources with
+    | Success(result, _, _)   -> result 
+    | Failure(errorMsg, e, s) -> failwith errorMsg
