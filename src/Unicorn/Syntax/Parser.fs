@@ -3,6 +3,8 @@ module rec Unicorn.Syntax.Parser
 open FParsec
 open Unicorn.Models.AST
 
+let private skipSpaces parser = spaces >>. parser .>> spaces
+
 let private parseId =
     spaces >>. many1Chars (satisfy isAsciiLetter) |>> Id
 
@@ -123,19 +125,29 @@ operatorParser.AddOperator(PrefixOperator("-", spaces, 2, true, fun x -> Unary(S
 let private parseExpression =
     exprParser |>> ExpressionStatement.Expression
 
+let private parseIfStatement =
+    parse {
+        do! skipString "if" |> skipSpaces
+        do! skipChar '(' |> skipSpaces
+        let! expr = parseExpressionStatement |> skipSpaces
+        do! skipChar ')' |> skipSpaces
+        let! body = parseCompoundStatement |> skipSpaces
+        return If (expr, body)
+    }
+
 let private parseExpressionStatement =
-    spaces >>. choice [
+    choice [
         parseVariableDeclaration
         parseAssignment
         parseExpression
-        // TODO: Add parseIfStatement
+        parseIfStatement
         // TODO: Add parseForStatement
         // TODO: Add parseWhileStatement
         // TODO: Add parseDoWhileStatement
-    ]
+    ] |> skipSpaces
 
 let private parseReturn =
-    spaces >>. skipString "return" >>. spaces >>. opt parseExpressionStatement
+    skipString "return" |> skipSpaces >>. opt parseExpressionStatement
 
 let private parseStatement =
     spaces >>. choice [
@@ -143,8 +155,20 @@ let private parseStatement =
         parseExpressionStatement    |>> Statement.ExpressionStatement
     ]
 
+let private parseManyStatements =
+    spaces >>. many parseStatement  |>> CompoundStatement.StatementList
+
+let private parseSimpleCompoundStatement =
+    parseStatement                  |>> CompoundStatement.Statement
+
+let private parseCompoundStatement =
+    choice [
+        parseManyStatements
+        parseSimpleCompoundStatement
+    ]
+
 let private parseFunctionBody =
-    spaces >>. many parseStatement
+    skipChar '{' >>. parseManyStatements |> skipSpaces .>> skipChar '}'
 
 let private parseFunction =
     parse {
@@ -173,4 +197,4 @@ let private parseTopLevelStatement =
 let private parseProgram sources =
     match run (many parseTopLevelStatement) sources with
     | Success(result, _, _)   -> result 
-    | Failure(errorMsg, e, s) -> failwith errorMsg
+    | Failure(errorMsg, _, _) -> failwith errorMsg

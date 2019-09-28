@@ -4,12 +4,16 @@ type AST =
     | AST of TopLevelStatement list
 and TopLevelStatement =
     | Deps of string list
-    | Function of name: Id * parameters: (Id * Id) list * returnType: Id * body : Statement list
+    | Function of name: Id * parameters: (Id * Id) list * returnType: Id * body : CompoundStatement
+and CompoundStatement =
+    | Statement of Statement
+    | StatementList of Statement list
 and Statement =
     | ExpressionStatement of ExpressionStatement
     | Return of ExpressionStatement option
 and ExpressionStatement =
     | VariableDeclaration of Id * Id * ExpressionStatement option
+    | If of condition: ExpressionStatement * body: CompoundStatement
     | Assignment of l: Id * r: ExpressionStatement
     | Expression of Expression
 and Expression =

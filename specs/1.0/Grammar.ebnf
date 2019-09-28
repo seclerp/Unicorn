@@ -24,18 +24,21 @@ comment = '#', { unicode_char }, EOL;
 
 (* Expressions *)
 assignment = id, '=', expression;
+if = 'if', '(', expression_statement, ')', compound_statement;
 expression = term | expression '+' term | expression '-' term;
 term = factor | term '*' factor | term '/' factor | term '%' factor;
 factor = primary | '-' factor | '+' factor;
 primary = id | character | integer | string | '(', expression, ')';
 
 return = 'return', { expression };
-expression_statement = expression | return;
+statement = expression_statement | return;
+compound_statement = '{', { statement }, '}' | statement;
+expression_statement = assignment | if | expression;
 
 signature = ':', id; 
 variable_declaration = 'let', id, signature, '=', expression;
 parameter_declaration = id, signature;
-function = 'fun', id, '(', { parameter_declaration, { ',', parameter_declaration } }, ')', signature, '{', { expression_statement }, '}';
+function = 'fun', id, '(', { parameter_declaration, { ',', parameter_declaration } }, ')', signature, '{', { statement }, '}';
 deps = 'deps', '{', { string }, '}';
 top_level_statement = deps | function;
 
