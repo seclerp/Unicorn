@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Ast.fs" />
+        <Compile Include="Parser.fs" />
+        <Compile Include="Asg.fs" />
+        <Compile Include="AsgBuilder.fs" />
+        <Compile Include="IR.fs" />
+        <Compile Include="IRBuilder.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FParsec" Version="1.1.1" />
+    </ItemGroup>
+
+</Project>

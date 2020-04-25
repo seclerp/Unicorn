@@ -1,8 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Unicorn", "Unicorn\Unicorn.fsproj", "{2811CBFA-DA5C-4B32-98A7-867503FE26E7}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Unicorn.Cli", "Unicorn.Cli\Unicorn.Cli.fsproj", "{2811CBFA-DA5C-4B32-98A7-867503FE26E7}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Unicorn.Tests", "Unicorn.Tests\Unicorn.Tests.fsproj", "{FB97AC9A-DC2E-4BE6-9A57-AED1B387273E}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Unicorn.Compiler", "Unicorn.Compiler\Unicorn.Compiler.fsproj", "{D212AA89-C06F-4421-ADCC-9EF98D86F3D4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +20,9 @@ Global
 		{FB97AC9A-DC2E-4BE6-9A57-AED1B387273E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB97AC9A-DC2E-4BE6-9A57-AED1B387273E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB97AC9A-DC2E-4BE6-9A57-AED1B387273E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D212AA89-C06F-4421-ADCC-9EF98D86F3D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D212AA89-C06F-4421-ADCC-9EF98D86F3D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D212AA89-C06F-4421-ADCC-9EF98D86F3D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D212AA89-C06F-4421-ADCC-9EF98D86F3D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,7 +1,8 @@
-module rec Unicorn.Syntax.Parser
+﻿module rec Unicorn.Parser
 
 open FParsec
-open Unicorn.Models.AST
+
+open Unicorn.Ast
 
 let private skipSpaces parser = spaces >>. parser .>> spaces
 
@@ -45,7 +46,7 @@ let private parsePrimary =
 let private parseDeps =
     let parseStringRaw =
         spaces >>. (between (skipChar '"') (skipChar '"') (manyChars anyChar))
-    
+
     parse {
         do! spaces
         do! skipString "deps"
@@ -67,7 +68,7 @@ let private parseParameter =
         let! type' = parseId
         return (name, type')
     }
-    
+
 let private parseParameters =
     between
         (pchar '(')
@@ -196,5 +197,5 @@ let private parseTopLevelStatement =
 
 let private parseProgram sources =
     match run (many parseTopLevelStatement) sources with
-    | Success(result, _, _)   -> result 
+    | Success(result, _, _)   -> result
     | Failure(errorMsg, _, _) -> failwith errorMsg
