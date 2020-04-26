@@ -2,17 +2,18 @@
 
 open FParsec
 
+open Unicorn.Compiler
 open Unicorn.Compiler.Ast
 open Unicorn.Compiler.ParserExtensions
 
 // Skip whitespaces and newline, but not next line (it is covered by indentation)
 let private skipSpaces : Parser<unit> =
-    skipMany (choice [pchar ' '; pchar '\t'])
-    .>> skipSatisfy ((=) '\n') // Skip ending newline
+    skipMany (choice [pchar Terminals.space; pchar Terminals.tab])
+    .>> skipSatisfy ((=) Terminals.newline) // Skip ending newline
 
 let private skipSpaces1 : Parser<unit> =
-    skipMany1 (choice [pchar ' '; pchar '\t'])
-    .>> skipSatisfy ((=) '\n') // Skip ending newline
+    skipMany1 (choice [pchar Terminals.space; pchar Terminals.tab])
+    .>> skipSatisfy ((=) Terminals.newline) // Skip ending newline
 
 let private parseId : Parser<Id>  =
     many1Chars (satisfy isAsciiLetter)
@@ -20,7 +21,7 @@ let private parseId : Parser<Id>  =
     |>> Id.Id
 
 let private parseIdPath =
-    sepBy parseId (pchar '.')
+    sepBy parseId (pstring Terminals.dotOperator)
     .>> skipSpaces
     |>> IdPath
 
@@ -31,22 +32,22 @@ let private parseTypedId =
     |>> TypedId
 
 let private parseCharacter =
-    skipChar '\''
+    skipChar Terminals.singleQuote
     >>. anyChar
-    .>> skipChar '\''
+    .>> skipChar Terminals.singleQuote
     .>> skipSpaces
     |>> Character
 
 let private parseInteger = spaces >>. pint32 |>> Integer
 let private parseString =
-    skipChar '\"'
+    skipChar Terminals.doubleQuote
     >>. manyChars anyChar
-    .>> skipChar '\"'
+    .>> skipChar Terminals.doubleQuote
     .>> skipSpaces
     |>> String.String
 
-let private parseTrue = pstring "true" >>% Boolean true
-let private parseFalse = pstring "false" >>% Boolean false
+let private parseTrue = pstring Terminals.trueKeyword >>% Boolean true
+let private parseFalse = pstring Terminals.falseKeyword >>% Boolean false
 let private parseBoolean =
     choice [
         parseTrue
@@ -69,28 +70,28 @@ let exprParser = operatorParser.ExpressionParser
 let termParser =
     choice [
         spaces >>. (parsePrimary |>> Expression.Primary) .>> spaces
-        between (spaces >>. pchar '(' .>> spaces) (spaces >>. pchar ')' .>> spaces) exprParser
+        between (spaces >>. pchar Terminals.leftBrace .>> spaces) (spaces >>. pchar Terminals.rightBrace .>> spaces) exprParser
     ]
 
 operatorParser.TermParser <- termParser
-operatorParser.AddOperator(InfixOperator("|>", spaces, 1, Associativity.Left, fun x y -> Binary(x, Pipe, y)))
-operatorParser.AddOperator(InfixOperator(">>", spaces, 2, Associativity.Left, fun x y -> Binary(x, Compose, y)))
-operatorParser.AddOperator(InfixOperator("+", spaces, 3, Associativity.Left, fun x y -> Binary(x, Add, y)))
-operatorParser.AddOperator(InfixOperator("-", spaces, 3, Associativity.Left, fun x y -> Binary(x, Subtract, y)))
-operatorParser.AddOperator(InfixOperator("*", spaces, 4, Associativity.Left, fun x y -> Binary(x, Multiply, y)))
-operatorParser.AddOperator(InfixOperator("/", spaces, 5, Associativity.Left, fun x y -> Binary(x, Divide, y)))
-operatorParser.AddOperator(PrefixOperator("-", spaces, 2, true, fun x -> Unary(Subtract, x)))
+operatorParser.AddOperator(InfixOperator(Terminals.pipeOperator, spaces, 1, Associativity.Left, fun x y -> Binary(x, Pipe, y)))
+operatorParser.AddOperator(InfixOperator(Terminals.composeOperator, spaces, 2, Associativity.Left, fun x y -> Binary(x, Compose, y)))
+operatorParser.AddOperator(InfixOperator(Terminals.plusOperator, spaces, 3, Associativity.Left, fun x y -> Binary(x, Add, y)))
+operatorParser.AddOperator(InfixOperator(Terminals.minusOperator, spaces, 3, Associativity.Left, fun x y -> Binary(x, Subtract, y)))
+operatorParser.AddOperator(InfixOperator(Terminals.starOperator, spaces, 4, Associativity.Left, fun x y -> Binary(x, Multiply, y)))
+operatorParser.AddOperator(InfixOperator(Terminals.slashOperator, spaces, 5, Associativity.Left, fun x y -> Binary(x, Divide, y)))
+operatorParser.AddOperator(PrefixOperator(Terminals.minusOperator, spaces, 2, true, fun x -> Unary(Subtract, x)))
 
 let private parseExpression =
     exprParser |>> ExpressionStatement.Expression
 
 let private parseTupleSignature =
     parse {
-        do! skipChar '('
+        do! skipChar Terminals.leftBrace
         do! spaces
-        let! inners = sepBy parseSignatureExpression (pchar '*' .>> spaces)
+        let! inners = sepBy parseSignatureExpression (pstring Terminals.starOperator .>> spaces)
         do! spaces
-        do! skipChar ')'
+        do! skipChar Terminals.rightBrace
         return SignatureExpression.Tuple inners
     } .>> skipSpaces
 
@@ -98,7 +99,7 @@ let private parseArrowSignature =
     parse {
         let! signatureA = parseSignatureExpression
         do! spaces1
-        do! skipString "->"
+        do! skipString Terminals.arrowOperator
         let! signatureB = parseSignatureExpression
         return SignatureExpression.Arrow (signatureA, signatureB)
     } .>> skipSpaces
@@ -112,16 +113,16 @@ let private parseSignatureExpression =
 
 let private parseAssignmentRest =
     parse {
-        do! skipChar '='
+        do! skipString Terminals.equalOperator
         do! skipSpaces
         return! parseBindingBody
     } .>> skipSpaces
 
 let private parseValueBinding =
     parse {
-        do! skipString "let"
+        do! skipString Terminals.letKeyword
         do! spaces
-        let! mutable' = pstring "mutable" |> opt
+        let! mutable' = pstring Terminals.mutableKeyword |> opt
         do! spaces
         let! typedId = parseTypedId
         do! spaces
@@ -131,17 +132,17 @@ let private parseValueBinding =
 
 let private parseParameter =
     parse {
-        do! skipChar '('
+        do! skipChar Terminals.leftBrace
         do! spaces
         let! typedId = parseTypedId
         do! spaces
-        do! skipChar ')'
+        do! skipChar Terminals.rightBrace
         return typedId
     } .>> skipSpaces
 
 let private parseFunctionBinding =
     parse {
-        do! skipString "let"
+        do! skipString Terminals.letKeyword
         do! spaces
         let! name = parseId
         do! spaces
@@ -160,7 +161,7 @@ let private parseLetBinding =
     ] .>> skipSpaces
 
 let private parseOpen =
-    pstring "open" .>> spaces >>. parseIdPath
+    pstring Terminals.openKeyword .>> spaces >>. parseIdPath
     .>> skipSpaces
     |>> InModuleDecl.Open
 
@@ -173,7 +174,7 @@ let private parseAssignment =
         do! spaces
         let! id = parseIdPath
         do! spaces
-        do! skipChar '='
+        do! skipString Terminals.equalOperator
         do! spaces
         let! value = parseAssignmentRest
         return Assignment (id, value)
@@ -205,7 +206,7 @@ let private parseModuleBody =
 
 let private parseModuleDef =
     parse {
-        do! skipString "module" .>> spaces
+        do! skipString Terminals.moduleKeyword .>> spaces
         let! name = parseIdPath .>> spaces
         let! decl = parseModuleBody .>> spaces
         return ModuleDef(name, decl)
