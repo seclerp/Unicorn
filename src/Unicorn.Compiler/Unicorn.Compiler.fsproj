@@ -5,7 +5,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Errors.fs" />
         <Compile Include="Ast.fs" />
+        <Compile Include="ParserExtensions.fs" />
         <Compile Include="Parser.fs" />
         <Compile Include="Asg.fs" />
         <Compile Include="AsgBuilder.fs" />

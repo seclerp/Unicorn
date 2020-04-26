@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+
+        <IsPackable>false</IsPackable>
+
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Expecto" Version="9.0.0" />
+      <PackageReference Include="Expecto.FsCheck" Version="9.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Parser.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+
+</Project>

@@ -4,13 +4,22 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>netcoreapp3.1</TargetFramework>
         <AssemblyName>unicorn</AssemblyName>
+        <PackageVersion>1.0.0</PackageVersion>
+        <AssemblyVersion>1.0.0</AssemblyVersion>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Argu" Version="6.0.0" />
     </ItemGroup>
 
     <ItemGroup>
+      <Compile Include="Arguments.fs" />
+      <Compile Include="Commands.fs" />
       <Compile Include="Program.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Unicorn.Compiler\Unicorn.Compiler.fsproj" />
     </ItemGroup>
 
 </Project>

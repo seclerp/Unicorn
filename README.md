@@ -10,14 +10,14 @@ High-level programming language with CIL backend. Work for bachelor degree
 /* Multi line comments */
 
 // Modules
-@ExplicitUsage // Attribute, ExplicitUsage prevents opening this module and forces yo use it name explicitly 
+@ExplicitUsage // Attribute, ExplicitUsage prevents opening this module and forces yo use it name explicitly
 module Sample =
     //Using namespaces
     open stdlib
 
     // Values
     let number: int = 0
-    
+
     // Mutable values
     let mutable anotherNumber: int = 0
     anotherNumber = 5
@@ -25,7 +25,7 @@ module Sample =
     // Functions
     let sum (a: int) (b: int) : int =
         a + b
-    
+
     // Types
     // Record aka data-classes
     data Transaction =
@@ -33,7 +33,7 @@ module Sample =
         amount: double
         userId: int
     let transaction = Transaction { id = Uuid.new(); amount: 22.6; userId = 5 }
-    
+
     // Algebraic data types
     // Unions aka sums
     union TransactionProvider =
@@ -64,9 +64,9 @@ module Sample =
         match shape with
             Shape.Circle radius:
                 radius ** 2 * math.Pi
-            Shape.Rectangle a b:
+            Shape.Rectangle (a, b):
                 a * b
-    
+
     // Partial application
     let sum5 = sum 5
     let sum = sum5 6
