@@ -11,7 +11,7 @@ High-level programming language with CIL backend. Work for bachelor degree
 
 // Modules
 @ExplicitUsage // Attribute, ExplicitUsage prevents opening this module and forces yo use it name explicitly
-module Sample =
+module Sample {
     //Using namespaces
     open stdlib
 
@@ -23,34 +23,41 @@ module Sample =
     anotherNumber = 5
 
     // Functions
-    let sum (a: int) (b: int) : int =
+    let sum (a: int) (b: int) : int {
         a + b
+    }
 
     // Types
     // Record aka data-classes
-    data Transaction =
+    data Transaction {
         id: uuid
         amount: double
         userId: int
+    }
+
     let transaction = Transaction { id = Uuid.new(); amount: 22.6; userId = 5 }
 
     // Algebraic data types
     // Unions aka sums
-    union TransactionProvider =
+    union TransactionProvider {
         Facebook
         Google
         Ios
         Adyen
+    }
+
     let txProvider = TransactionProvider.Facebook
 
     // Unions with payload, aka discriminated unions
-    union Shape =
+    union Shape {
         Circle: int           // radius
         Rectangle: int * int  // a nd b sides
+    }
+
     let shape = Shape.Circle 15
 
     // Single case union
-    union UserId: string // equals to `union UserId = UserId : string`
+    union UserId: string // equals to `union UserId { UserId : string }`
 
     // Aliases
     alias FirstName = string
@@ -60,12 +67,16 @@ module Sample =
     let noValue = Option.None
 
     // Pattern matching
-    let calculateArea (shape: Shape) =
-        match shape with
-            Shape.Circle radius:
+    let calculateArea (shape: Shape) : double {
+        match shape {
+            (Shape.Circle radius) {
                 radius ** 2 * math.Pi
-            Shape.Rectangle (a, b):
+            }
+            (Shape.Rectangle (a, b)) {
                 a * b
+            }
+        }
+    }
 
     // Partial application
     let sum5 = sum 5
@@ -79,4 +90,5 @@ module Sample =
 
     // Piping
     let result = 7 |> sum 3 |> sum 10 // 20
+}
 ```

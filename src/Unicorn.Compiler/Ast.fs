@@ -16,30 +16,34 @@ and Op =
 
 and Primary =
     | Id of Id
+    | IdPath of IdPath
     | Character of char
     | Integer of int
     | String of String
     | Boolean of bool
+    | List of Expression list
 
 and Expression =
     | Binary of Expression * Op * Expression
     | Unary of Op * Expression
     | Primary of Primary
+    | FunctionCall of name: IdPath * arguments: Expression list
 
 and SignatureExpression =
-    | Tuple of SignatureExpression list
+    | Tuple of SignatureExpression * SignatureExpression
     | Arrow of SignatureExpression * SignatureExpression
     | Type of IdPath
 
 type LetBinding =
-    | Value of isMutable: bool * id: TypedId * value: ExpressionStatement list option
-    | Function of name: Id * params': TypedId list * returns: SignatureExpression * body: ExpressionStatement list
+    | Value of isMutable: bool * id: TypedId * value: ExpressionStatement option
+    | Function of name: Id * params': TypedId list * returns: SignatureExpression * body: ExpressionStatement
 
 and ExpressionStatement =
     | LetBinding of LetBinding
-    | PatternMatch of value: Expression * cases: (PatternExpression * ExpressionStatement list) list
-    | Assignment of id: IdPath * value: ExpressionStatement list
+    | PatternMatch of value: Expression * cases: (PatternExpression * ExpressionStatement) list
+    | Assignment of id: IdPath * value: ExpressionStatement
     | Expression of Expression
+    | Multiple of ExpressionStatement list
 
 and PatternExpression =
     | UnionDeconstruct of union: IdPath * value: UnionDeconstructValue
@@ -51,9 +55,13 @@ and UnionDeconstructValue =
     | Single of Id
     | Empty
 
+and UnionCase =
+    | Typed of TypedId
+    | Untyped of Id
+
 and TypeDecl =
     | Data of name: Id * fields: TypedId list
-    | Union of name: Id * cases: TypedId list
+    | Union of name: Id * cases: UnionCase list
     | SingleUnion of TypedId
     | Alias of name: Id * for': IdPath
 

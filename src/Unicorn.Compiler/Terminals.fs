@@ -7,8 +7,12 @@ let [<Literal>] tab = '\t'
 let [<Literal>] space = ' '
 let [<Literal>] leftBrace = '('
 let [<Literal>] rightBrace = ')'
+let [<Literal>] leftSquareBrace = '{'
+let [<Literal>] rightSquareBrace = '}'
 let [<Literal>] singleQuote = '\''
 let [<Literal>] doubleQuote = '\"'
+let [<Literal>] colon = ':'
+let [<Literal>] semicolon = ';'
 
 // Keywords
 let [<Literal>] moduleKeyword = "module"

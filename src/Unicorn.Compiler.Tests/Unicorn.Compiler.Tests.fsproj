@@ -11,11 +11,17 @@
     <ItemGroup>
       <PackageReference Include="Expecto" Version="9.0.0" />
       <PackageReference Include="Expecto.FsCheck" Version="9.0.0" />
+      <PackageReference Include="FParsec" Version="1.1.1" />
     </ItemGroup>
 
     <ItemGroup>
         <Compile Include="Parser.fs" />
         <Compile Include="Program.fs" />
+        <Compile Include="AstHelpers.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Unicorn.Compiler\Unicorn.Compiler.fsproj" />
     </ItemGroup>
 
 </Project>
