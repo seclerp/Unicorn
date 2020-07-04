@@ -1,0 +1,37 @@
+# Sample program
+
+func fact(val : int) : int {
+    if (val <= 1) {
+        return 1
+    }
+    return (val * fact(val - 1))
+}
+
+func main3() {
+    let a : int
+    a = 0
+    a = -+a++ + - ++a + +-+a
+    let b : int
+    b = 5
+}
+
+func main2() {
+    let a : int
+    a = 1
+    while (a < 6) {
+        a = a + 1
+    }
+}
+
+func main1() {
+    let hello : string
+    hello = "Hello, "
+    let name : string
+    println("Enter name: ")
+    name = readstr()
+    println(hello + name)
+}
+
+func main() {
+    main1()
+}

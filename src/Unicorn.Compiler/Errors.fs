@@ -1,13 +1,18 @@
-﻿module Unicorn.Compiler.Errors
+module Unicorn.Errors
 
-type CompilerError =
-    | SyntaxError of int * string
-    | SemanticError of int * string
-    | LinkingError of int * string
-    | EmitterError of int * string
-    override error.ToString() =
-        match error with
-        | SyntaxError (code, msg)   -> sprintf "PR%i: %s" code msg
-        | SemanticError (code, msg) -> sprintf "SC%i: %s" code msg
-        | LinkingError (code, msg)  -> sprintf "LK%i: %s" code msg
-        | EmitterError (code, msg)  -> sprintf "EM%i: %s" code msg
+type CompilerException(message : string) as this =
+    inherit System.Exception(message)
+    override x.ToString() = this.GetType().Name + ": " + this.Message
+
+let create m = CompilerException m
+let syntaxError a                 = create (sprintf "MC002 Syntax error: %s" a)
+let variableAlreadyDefined a      = create (sprintf "MC003 A variable named '%s' is already defined in this scope" a)
+let cannotConvertType a b         = create (sprintf "MC004 Cannot convert type '%s' to '%s'" a b)
+let operatorCannotBeApplied a b c = create (sprintf "MC005 Operator '%s' cannot be applied to operands of type '%s' and '%s'" a b c)
+let nameDoesNotExist a            = create (sprintf "MC006 The name '%s' does not exist in the current context" a)
+let invalidArguments a b c d      = create (sprintf "MC007 Call to function '%s' has some invalid arguments. Argument %i: Cannot convert from '%s' to '%s'" a b c d)
+let wrongNumberOfArguments a b c  = create (sprintf "MC008 Function '%s' takes %i arguments, but here was given %i" a b c)
+let noEnclosingLoop()             = create          "MC009 No enclosing loop out of which to break"
+let cannotApplyIndexing a         = create (sprintf "MC010 Cannot apply indexing with [] to an expression of type '%s'" a)
+let functionAlreadyDefined a      = create (sprintf "MC011 A function named '%s' is already defined" a)
+let missingEntryPoint()           = create          "MC012 Program does not contain a 'main' method suitable for an entry point"
