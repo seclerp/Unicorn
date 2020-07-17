@@ -1,292 +1,270 @@
-﻿module rec Unicorn.Parser
+module Unicorn.Parser
 
 open FParsec
+open System
 
-open Unicorn.Compiler
-open Unicorn.Compiler.Ast
+open Unicorn.ParserHelpers
+open Errors
 
-let (<!>) (p: Parser<_,_>) label : Parser<_,_> =
-    fun stream ->
-        printfn "%A: Entering %s" stream.Position label
-        let reply = p stream
-        printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
-        reply
+let getGuid = Guid.NewGuid
 
-let private tabOrSpace =
-    pchar Terminals.space <|> pchar Terminals.tab
+// Keywords
+let private LET             = "let"
+let private FUNC            = "func"
+let private IF              = "if"
+let private ELSE            = "else"
+let private WHILE           = "while"
+let private RETURN          = "return"
+let private BREAK           = "break"
 
-let private tabOrSpaces =
-    many1 (pchar Terminals.space <|> pchar Terminals.tab)
+// Type names
+let private NONE            = "none"
+let private STRING          = "string"
+let private BOOL            = "bool"
+let private INT             = "int"
+let private DOUBLE          = "double"
 
-let private skipManySpacesAndNewline =
-    skipMany tabOrSpace .>> skipNewline .>> skipMany tabOrSpace
+// Comments
+let private COMMENT_START  = '#'
 
-// Skip whitespaces and newline, but not next line (it is covered by indentation)
-let private skipSpaces : Parser<unit, unit> =
-    skipMany tabOrSpace
-    .>> skipSatisfy ((=) Terminals.newline) // Skip ending newline
+// Literals
+let private STRING_LIT      = @"\""(([^\""]|\\\"")*[^\\])?\""|\'(([^\""]|\\\"")*[^\\])?\'"
+let private INT_LIT         = @"\d+"
+let private DOUBLE_LIT      = @"\d*\.\d+"
+let private TRUE_LIT        = "true"
+let private FALSE_LIT       = "false"
 
-let private skipSpaces1 : Parser<unit, unit> =
-    skipMany1 tabOrSpace
-    .>> skipSatisfy ((=) Terminals.newline) // Skip ending newline
+// Operators
+let private PLUS            = "+"
+let private MINUS           = "-"
+let private NOT             = "not"
+let private ASTERISK        = "*"
+let private DOUBLEASTERISK  = "**"
+let private PERCENT         = "%"
+let private FORWARDSLASH    = "/"
+let private SINGLEEQUALS    = "="
+let private OR              = "or"
+let private AND             = "and"
+let private IS              = "is"
+let private EQ              = "="
+let private LTEQ            = "<="
+let private LT              = "<"
+let private GTEQ            = ">="
+let private GT              = ">"
 
-let private expectNewline : Parser<unit, unit> =
-    skipMany (choice [pchar Terminals.space; pchar Terminals.tab])
-    .>> pchar Terminals.newline
+// Common
+let private IDENTIFIER      = "[a-zA-Z_\$][a-zA-Z_\$0-9]*"
+let private DOT             = "."
+let private OPENPAREN       = "("
+let private CLOSEPAREN      = ")"
+let private OPENCURLY       = "{"
+let private CLOSECURLY      = "}"
+let private OPENSQUARE      = "["
+let private CLOSESQUARE     = "]"
+let private COLON           = ":"
+let private COMMA           = ","
 
-let idParser : Parser<Id, unit> =
-    parse {
-        let! firstSymbol = choice [asciiLetter; pchar '_']
-        let! rest = manyChars <| choice [asciiLetter; digit; pchar '_']
-        return sprintf "%c%s" firstSymbol rest
-    } .>> spaces
-    |>> Id.Id
-
-let idPathParser =
-    sepBy idParser (pstring Terminals.dotOperator)
-    |>> IdPath.IdPath
-
-let typedIdParser =
-    parse {
-        let! id = idParser <!> "parseId" .>> spaces
-        do! skipChar Terminals.colon .>> spaces
-        let! type' = signatureExprParser <!> "parseSignatureExpression"
-        return TypedId(id, type')
-    }
-
-let characterParser =
-    skipChar Terminals.singleQuote
-    >>. anyChar
-    .>> skipChar Terminals.singleQuote
-    |>> Character
-
-let integerParser = pint32 |>> Integer
-let stringParser =
-    skipChar Terminals.doubleQuote
-    >>. manyChars anyChar
-    .>> skipChar Terminals.doubleQuote
-    |>> String.String
-
-let trueParser = pstring Terminals.trueKeyword >>% Boolean true
-let falseParser = pstring Terminals.falseKeyword >>% Boolean false
-let parseBoolean : Parser<Primary, unit> = trueParser <|> falseParser
-
-let primaryParser =
-    choice [
-        idParser         |>> Primary.Id
-        characterParser
-        integerParser
-        stringParser     |>> Primary.String
-        trueParser
-        falseParser
-        parseBoolean
+let typeSpec : Parser<Ast.TypeSpec, unit> =
+    choice_ws [
+        attempt (keyword NONE    |>> (fun _ -> Ast.NoneType)) ;
+        attempt (keyword STRING  |>> (fun _ -> Ast.String)) ;
+        attempt (keyword INT     |>> (fun _ -> Ast.Int)) ;
+        attempt (keyword DOUBLE  |>> (fun _ -> Ast.Double)) ;
+                (keyword BOOL    |>> (fun _ -> Ast.Bool)) ;
     ]
 
-let private operatorParser = OperatorPrecedenceParser<Expression, unit, unit>()
-let private exprParser = operatorParser.ExpressionParser
-let private parseTerm =
-    choice [
-        (primaryParser |>> Expression.Primary) .>> spaces
-        between (pchar Terminals.leftBrace .>> spaces) (pchar Terminals.rightBrace .>> spaces) exprParser
-    ]
-let private populateOperatorParser =
-    operatorParser.TermParser <- parseTerm <!> "term"
-    operatorParser.AddOperator(InfixOperator(Terminals.pipeOperator, spaces, 1, Associativity.Left, fun x y -> Binary(x, Pipe, y)))
-    operatorParser.AddOperator(InfixOperator(Terminals.composeOperator, spaces, 2, Associativity.Left, fun x y -> Binary(x, Compose, y)))
-    operatorParser.AddOperator(InfixOperator(Terminals.plusOperator, spaces, 3, Associativity.Left, fun x y -> Binary(x, Add, y)))
-    operatorParser.AddOperator(InfixOperator(Terminals.minusOperator, spaces, 3, Associativity.Left, fun x y -> Binary(x, Subtract, y)))
-    operatorParser.AddOperator(InfixOperator(Terminals.starOperator, spaces, 4, Associativity.Left, fun x y -> Binary(x, Multiply, y)))
-    operatorParser.AddOperator(InfixOperator(Terminals.slashOperator, spaces, 5, Associativity.Left, fun x y -> Binary(x, Divide, y)))
-    operatorParser.AddOperator(PrefixOperator(Terminals.minusOperator, spaces, 2, true, fun x -> Unary(Subtract, x)))
+let identifier : Parser<Ast.Identifier, unit> =
+    regex_ws IDENTIFIER |>> (fun a -> string a)
 
-let private block blockParser =
-    between
-        (pchar Terminals.leftSquareBrace)
-        (pchar Terminals.rightSquareBrace)
-        (spaces >>. blockParser)
+/// Literals
 
-let expressionParser =
-    exprParser |>> ExpressionStatement.Expression
+let stringLiteral : Parser<Ast.Literal, unit> =
+    literal STRING_LIT
+        |>> (fun s -> Ast.StringLiteral((s.Substring(1, s.Length - 2))))
 
-let private signatureOperatorParser = OperatorPrecedenceParser<SignatureExpression, unit, unit>()
-let signatureExprParser : Parser<SignatureExpression, unit> =
-   signatureOperatorParser.ExpressionParser
-let private signatureTermParser =
-    choice [
-        idPathParser |>> Type
-        between (pchar Terminals.leftBrace) (pchar Terminals.rightBrace) signatureExprParser
-    ]
-let private populateSignatureParser =
-    signatureOperatorParser.TermParser <- signatureTermParser
-    signatureOperatorParser.AddOperator(InfixOperator(Terminals.arrowOperator, spaces, 1, Associativity.Left, fun x y -> SignatureExpression.Arrow(x, y)))
-    signatureOperatorParser.AddOperator(InfixOperator(Terminals.starOperator, spaces, 2, Associativity.Left, fun x y -> SignatureExpression.Tuple(x, y)))
+let boolLiteral : Parser<Ast.Literal, unit> =
+    let trueLiteral = str_ws TRUE_LIT
+                        |>> (fun _ -> Ast.BoolLiteral true)
 
-let assignmentRestParser =
-    parse {
-        do! skipString Terminals.equalOperator .>> spaces
-        return! bindingBodyParser .>> spaces
-    }
+    let falseLiteral = str_ws FALSE_LIT
+                        |>> (fun _ -> Ast.BoolLiteral false)
 
-let valueBindingParser =
-    parse {
-        do! skipString Terminals.letKeyword .>> spaces1
-        let! mutable' = opt (skipString Terminals.mutableKeyword .>> spaces1)
-        let! typedId = typedIdParser <!> "parseTypedId" .>> spaces
-        let! value = (assignmentRestParser <!> "parseAssignmentRest" .>> spaces) |> opt
-        return LetBinding.Value (false, typedId, value)
-    }
+    trueLiteral <|> falseLiteral
 
-let parameterParser =
-    parse {
-        do! skipChar Terminals.leftBrace
-        do! spaces
-        let! typedId = typedIdParser
-        do! spaces
-        do! skipChar Terminals.rightBrace
-        return typedId
-    }
+let intLiteral : Parser<Ast.Literal, unit>  =
+    literal INT_LIT
+        |>> (fun a -> Ast.IntLiteral (int a))
 
-let functionBindingParser =
-    parse {
-        do! skipString Terminals.letKeyword
-        do! spaces
-        let! name = idParser
-        do! spaces
-        let! params' = sepBy parameterParser spaces
-        do! spaces
-        let! results = signatureExprParser
-        do! skipSpaces
-        let! body = assignmentRestParser
-        return LetBinding.Function (name, params', results, body)
-    }
+let doubleLiteral : Parser<Ast.Literal, unit> =
+    literal DOUBLE_LIT
+        |>> (fun a -> Ast.DoubleLiteral (double a))
 
-let letBindingParser =
-    choice [
-        valueBindingParser <!> "let"
-        functionBindingParser
+let literal : Parser<Ast.Literal, unit> =
+    choice_ws [
+        attempt stringLiteral ;
+        attempt boolLiteral ;
+        attempt doubleLiteral ;
+                intLiteral ;
     ]
 
-let openParser =
-    skipString Terminals.openKeyword .>> spaces >>. idPathParser
-    |>> InModuleDecl.Open
 
-let private bindingBodyParser =
-    choice [
-        //block parseExpressionStatement
-        expressionStatementParser
+
+/// Expressions
+
+let expression, expressionImpl = createParserForwardedToRef()
+
+let literalExpression : Parser<Ast.Expression, unit> =
+    literal
+        |>> (fun a -> Ast.LiteralExpression (a, getGuid()))
+
+let assignmentExpression : Parser<Ast.Expression, unit> =
+    (pipe2 (identifier) (symbol EQ >>. expression)
+        (fun a b -> Ast.VariableAssignmentExpression ({ Identifier = a; Guid = getGuid() }, b, getGuid()))) ;
+
+let arguments : Parser<Ast.Arguments, unit> = sepBy_ws expression (symbol COMMA)
+
+let identifierExpression : Parser<Ast.Expression, unit> =
+    choice_ws [
+        attempt (pipe2 (identifier) (symbol OPENPAREN >>. arguments .>> symbol CLOSEPAREN)
+            (fun a b -> Ast.FunctionCallExpression (a, b, getGuid()))) ;
+        identifier |>> (fun x -> Ast.IdentifierExpression ({ Identifier = x; Guid = getGuid(); }, getGuid())) ;
     ]
 
-let assignmentParser =
-    parse {
-        let! id = idPathParser
-        do! spaces
-        do! skipString Terminals.equalOperator
-        do! spaces
-        let! value = assignmentRestParser
-        return Assignment (id, value)
-    }
+/// Operators
 
-//let private parseUnionDeconstructValue =
-//    choice [
-//        pchar Terminals.leftBrace
-//    ]
-//
-//let private parseUnionDeconstruct =
-//    parse {
-//        do! skipChar
-//    }
-//
-//let private parsePatternExpression =
-//    ()
+let opp = new OperatorPrecedenceParser<Ast.Expression, unit, unit>()
+let termsExpression = opp.ExpressionParser
 
-let expressionStatementParser : Parser<ExpressionStatement, unit> =
-    choice [
-        letBindingParser |>> ExpressionStatement.LetBinding
-        // TODO: parsePatternMatch
-        assignmentParser
-        expressionParser
-    ] .>> skipSpaces
-
-let private sepBySemicolonOrNewline parser =
-    sepBy parser <|
-        choice [
-            skipMany (tabOrSpaces >>. skipChar Terminals.newline .>> tabOrSpaces)
-            tabOrSpaces >>. skipChar Terminals.semicolon .>> spaces
-        ]
-
-let dataDeclParser =
-    parse {
-        do! skipString Terminals.dataKeyword .>> spaces
-        let! name = idParser .>> spaces
-        let! fields = block (sepBySemicolonOrNewline typedIdParser)
-        return Data(name, fields)
-    }
-
-let unionDeclParser =
-    let parseUnionCase =
-        choice [
-            idParser .>>. signatureExprParser |>> TypedId |>> UnionCase.Typed
-            idParser |>> UnionCase.Untyped
-        ] .>> expectNewline
-
-    parse {
-        do! skipString Terminals.unionKeyword .>> spaces
-        let! name = idParser .>> spaces
-        let! fields = block (sepBySemicolonOrNewline parseUnionCase)
-        return Union(name, fields)
-    }
-
-let singleUnionDeclParser =
-    skipString Terminals.unionKeyword .>> spaces >>. typedIdParser
-    |>> TypeDecl.SingleUnion
-
-let aliasDeclParser =
-    parse {
-        do! skipString Terminals.aliasKeyword .>> spaces
-        let! alias = idParser .>> spaces
-        do! skipString Terminals.equalOperator .>> spaces
-        let! for' = idPathParser .>> spaces
-        return Alias(alias, for')
-    }
-
-let typeDeclParser : Parser<TypeDecl, unit> =
-    choice [
-        dataDeclParser
-        unionDeclParser
-        singleUnionDeclParser
-        aliasDeclParser
-    ] .>> skipSpaces
-
-let private moduleBodyParser =
-    choice [
-        openParser
-        typeDeclParser |>> InModuleDecl.TypeDecl
-        letBindingParser |>> InModuleDecl.LetBinding
+let termParser =
+    choice_ws [
+        attempt assignmentExpression ;
+        attempt literalExpression ;
+        attempt identifierExpression ;
+        between (symbol OPENPAREN) (symbol CLOSEPAREN) termsExpression
     ]
 
-let moduleDefParser =
-    parse {
-        do! skipString Terminals.moduleKeyword .>> spaces
-        let! name = idPathParser .>> spaces
-        let! decl = block (many moduleBodyParser) .>> spaces
-        return ModuleDef(name, decl)
-    }
+let identifierFromExpression = function
+    | Ast.IdentifierExpression (i, _) -> {i with Guid = getGuid()}
+    | _ -> raise (syntaxError (sprintf "Identifier expected"))
 
-let chunkParser =
-    spaces >>. many (moduleDefParser .>> spaces)
+opp.TermParser <- termParser
 
-let toResult chunkLength =
-    function
-    | Success (result, _, _) ->
-        Result.Ok result
-    | Failure (errorMsg, _, _) ->
-        Result.Error errorMsg
+opp.AddOperator(InfixOperator(OR, ws, 1, Associativity.Left, fun x y ->     binary x Ast.Eq y (getGuid())))
+opp.AddOperator(InfixOperator(IS, ws, 2, Associativity.Left, fun x y ->     binary x Ast.Eq y (getGuid())))
 
-let runParser parser chunkName (sources: string) =
-    let chunkLength = int64 sources.Length
-    let state = ()
-    runParserOnString (parser .>> eof) state chunkName sources
-    |> toResult chunkLength
+opp.AddOperator(InfixOperator(LTEQ, ws, 2, Associativity.Left, fun x y ->   binary x Ast.LtEq y (getGuid())))
+opp.AddOperator(InfixOperator(LT, ws, 2, Associativity.Left, fun x y ->     binary x Ast.Lt y (getGuid())))
 
-let parseChunk chunkName (sources: string) =
-    runParser chunkParser chunkName sources
+opp.AddOperator(InfixOperator(GTEQ, ws, 2, Associativity.Left, fun x y ->   binary x Ast.GtEq y (getGuid())))
+opp.AddOperator(InfixOperator(GT, ws, 2, Associativity.Left, fun x y ->     binary x Ast.Gt y (getGuid())))
+
+opp.AddOperator(InfixOperator(AND, ws, 3, Associativity.Left, fun x y ->    binary x Ast.And y (getGuid())))
+
+opp.AddOperator(InfixOperator(PLUS, ws, 1, Associativity.Left, fun x y ->            binary x Ast.Sum y (getGuid())))
+opp.AddOperator(InfixOperator(MINUS, ws, 1, Associativity.Left, fun x y ->           binary x Ast.Diff y (getGuid())))
+opp.AddOperator(InfixOperator(ASTERISK, ws, 2, Associativity.Left, fun x y ->        binary x Ast.Mult y (getGuid())))
+opp.AddOperator(InfixOperator(FORWARDSLASH, ws, 2, Associativity.Left, fun x y ->    binary x Ast.Div y (getGuid())))
+opp.AddOperator(InfixOperator(DOUBLEASTERISK, ws, 3, Associativity.Right, fun x y -> binary x Ast.Pow y (getGuid())))
+
+opp.AddOperator(PrefixOperator(NOT, ws, 4, true, fun x -> (unary x Ast.Not (getGuid()))))
+opp.AddOperator(PrefixOperator(MINUS, ws, 4, true, fun x -> (unary x Ast.Minus (getGuid()))))
+opp.AddOperator(PrefixOperator(PLUS, ws, 4, true, fun x -> (unary x Ast.Plus (getGuid()))))
+
+do expressionImpl :=
+    choice_ws [
+        attempt assignmentExpression ;
+        attempt termsExpression ;
+        attempt literalExpression ;
+        identifierExpression ;
+    ]
+
+/// Statements
+
+let statement, statementImpl = createParserForwardedToRef()
+
+let statements : Parser<Ast.Statement list, unit> = many_ws statement
+
+let breakStatement : Parser<Ast.Statement, unit> =
+    (keyword BREAK |>> (fun _ -> Ast.BreakStatement))
+
+let returnStatement : Parser<Ast.Statement, unit> =
+    choice_ws [
+        attempt (keyword RETURN >>. expression |>> (fun a -> Ast.ReturnStatement (Some a))) ;
+                (keyword RETURN |>> (fun _ -> Ast.ReturnStatement None)) ;
+    ]
+
+let blockStatement =
+    symbol OPENCURLY >>. statements .>> symbol CLOSECURLY |>>
+        (fun a -> Ast.BlockStatement (a))
+
+let ifStatement : Parser<Ast.Statement, unit> =
+    choice_ws [
+        attempt (pipe3 (keyword IF >>. symbol OPENPAREN >>. expression .>> symbol CLOSEPAREN) (statement) (keyword ELSE >>. statement)
+            (fun a b c -> Ast.IfStatement (a, b, Some c))) ;
+        (pipe2 (keyword IF >>. symbol OPENPAREN >>. expression .>> symbol CLOSEPAREN) (statement)
+            (fun a b -> Ast.IfStatement (a, b, None)));
+    ]
+
+let whileStatement : Parser<Ast.Statement, unit> =
+    pipe2 (keyword WHILE >>. symbol OPENPAREN >>. expression .>> symbol CLOSEPAREN) (statement)
+        (fun a b -> Ast.WhileStatement (a, b))
+
+let expressionStatement : Parser<Ast.Statement, unit> =
+    expression |>> (fun a -> Ast.ExpressionStatement (a))
+
+
+let parameterStatement : Parser<Ast.VariableDeclarationStatement, unit> =
+        (pipe2 (identifier) (symbol COLON >>. typeSpec)
+            (fun a b -> (a, b, getGuid()))) ;
+
+let parametersStatement : Parser<Ast.Parameters, unit> = sepBy_ws parameterStatement (symbol COMMA)
+
+let functionDeclarationStatement : Parser<Ast.Statement, unit> =
+    choice_ws [
+        attempt (pipe4 (keyword FUNC >>. identifier) (symbol OPENPAREN >>. parametersStatement .>> symbol CLOSEPAREN)
+            (symbol COLON >>. typeSpec) (blockStatement)
+            (fun a b c d -> Ast.FunctionDeclarationStatement (a, b, c, d, getGuid()))) ;
+        (pipe3 (keyword FUNC >>. identifier) (symbol OPENPAREN >>. parametersStatement .>> symbol CLOSEPAREN)
+            (blockStatement)
+            (fun a b c -> Ast.FunctionDeclarationStatement (a, b, Ast.NoneType, c, getGuid()))) ;
+    ]
+
+let variableDeclarationStatement : Parser<Ast.Statement, unit> =
+    (pipe2 (keyword LET >>. identifier) (symbol COLON >>. typeSpec)
+        (fun a b -> Ast.VariableDeclarationStatement (a, b, getGuid()))) ;
+
+/// Comments
+
+let singleLineComment : Parser<Ast.Statement, unit> =
+    (pchar COMMENT_START >>. restOfLine true) |>> (fun x -> Ast.CommentStatement x)
+
+do statementImpl :=
+    choice_ws [
+        attempt singleLineComment ;
+        attempt functionDeclarationStatement ;
+        attempt variableDeclarationStatement ;
+        attempt ifStatement ;
+        attempt whileStatement;
+        attempt returnStatement ;
+        attempt breakStatement ;
+        attempt blockStatement ;
+        expressionStatement ;
+    ]
+
+/// Declarations
+
+let declarationStatement =
+    choice_ws [
+        variableDeclarationStatement ;
+        functionDeclarationStatement ;
+        singleLineComment ;
+    ]
+
+let declarationStatementList = many_ws declarationStatement
+
+let program = declarationStatementList .>> eof
+
+let parse (input : string) =
+    match run program input with
+    | Success(result, _, _)   -> Result.Ok result
+    | Failure(errorMsg, _, _) -> Result.Error (syntaxError errorMsg)

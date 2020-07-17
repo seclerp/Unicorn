@@ -5,18 +5,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Errors.fs" />
-        <Compile Include="Ast.fs" />
-        <Compile Include="Terminals.fs" />
-        <Compile Include="Parser.fs" />
-        <Compile Include="Asg.fs" />
-        <Compile Include="AsgBuilder.fs" />
-        <Compile Include="IR.fs" />
-        <Compile Include="IRBuilder.fs" />
+      <PackageReference Include="FParsec" Version="1.1.1" />
+      <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="3.1.5" />
+      <PackageReference Include="Mono.Cecil" Version="0.11.2" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="FParsec" Version="1.1.1" />
+        <Compile Include="Ast.fs" />
+        <Compile Include="Errors.fs" />
+        <Compile Include="ParserHelpers.fs" />
+        <Compile Include="Parser.fs" />
+        <Compile Include="Semantic.fs" />
+        <Compile Include="IL.fs" />
+        <Compile Include="Optimizer.fs" />
+        <Compile Include="EmitReferenceCache.fs" />
+        <Compile Include="ProcessorExtensions.fs" />
+        <Compile Include="Compiler.fs" />
+        <EmbeddedResource Include="template.runtimeconfig.json" />
     </ItemGroup>
 
 </Project>

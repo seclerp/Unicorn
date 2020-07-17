@@ -10,12 +10,17 @@
 
     <ItemGroup>
       <PackageReference Include="Argu" Version="6.0.0" />
+      <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     </ItemGroup>
 
     <ItemGroup>
       <Compile Include="Arguments.fs" />
+      <Compile Include="ResultBuilder.fs" />
       <Compile Include="Commands.fs" />
       <Compile Include="Program.fs" />
+      <Content Include="program.mcos">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 
     <ItemGroup>

@@ -11,11 +11,11 @@ let main args =
             Commands.version ()
         else
             match results.GetSubCommand() with
-            | Parse parseArgs ->
-                Commands.parse parseArgs
+            | Compile compileArgs ->
+                Commands.compile compileArgs
             | other ->
                 Commands.invalid (string other)
         |> Commands.processResult
     with ex ->
-        printfn "%s" ex.Message
+        printfn "%A" ex
     0
